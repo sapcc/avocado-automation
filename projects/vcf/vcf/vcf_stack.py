@@ -297,15 +297,19 @@ echo 'net.ipv4.conf.all.rp_filter = 2' >> /etc/sysctl.conf
             opts=ResourceOptions(depends_on=[exec_install_pwsh]),
         )
 
-        # copy from path relative to the project root
-        copy_cleanup_sh = CopyFile(
-            "copy-cleanup",
-            host_id=self.resources.helper_vm.id,
-            conn=conn_args,
-            src="./scripts/cleanup.sh",
-            dest="/home/ccloud/cleanup.sh",
-            opts=ResourceOptions(depends_on=[copy_rsa_key]),
-        )
+        with open("./scripts/cleanup.sh") as f:
+            template = jinja2.Template(f.read())
+            cleanup_script = template.render(
+                vmware_password=self.props.vmware_password,
+            )
+            copy_cleanup_sh = CopyFileFromString(
+                "copy-cleanup-sh",
+                host_id=self.resources.helper_vm.id,
+                conn=conn_args,
+                from_str=cleanup_script,
+                dest="/home/ccloud/cleanup.sh",
+                opts=ResourceOptions(depends_on=[copy_rsa_key]),
+            )
         with open("./scripts/config.sh") as f:
             template = jinja2.Template(f.read())
             config_script = template.render(
