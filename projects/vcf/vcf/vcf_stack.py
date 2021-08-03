@@ -422,112 +422,39 @@ echo 'net.ipv4.conf.all.rp_filter = 2' >> /etc/sysctl.conf
                 }
             )
 
-            subport_vmotion = networking.Port(
-                node_name + "-vmotion",
-                admin_state_up=True,
-                network_id=self.resources.private_networks["vmotion"]["network"].id,
-                opts=ResourceOptions(
-                    depends_on=[self.resources.private_networks["vmotion"]["subnet"]]
-                ),
-            )
-            subport_edgetep = networking.Port(
-                node_name + "-edgetep",
-                network_id=self.resources.private_networks["edgetep"]["network"].id,
-                opts=ResourceOptions(
-                    depends_on=[self.resources.private_networks["edgetep"]["subnet"]]
-                ),
-            )
-            subport_hosttep = networking.Port(
-                node_name + "-hosttep",
-                network_id=self.resources.private_networks["hosttep"]["network"].id,
-                opts=ResourceOptions(
-                    depends_on=[self.resources.private_networks["hosttep"]["subnet"]]
-                ),
-            )
-            subport_nfs = networking.Port(
-                node_name + "-nfs",
-                network_id=self.resources.private_networks["nfs"]["network"].id,
-                opts=ResourceOptions(
-                    depends_on=[self.resources.private_networks["nfs"]["subnet"]]
-                ),
-            )
-            subport_vsan = networking.Port(
-                node_name + "-vsan",
-                network_id=self.resources.private_networks["vsan"]["network"].id,
-                opts=ResourceOptions(
-                    depends_on=[self.resources.private_networks["vsan"]["subnet"]]
-                ),
-            )
-            subport_vsanwitness = networking.Port(
-                node_name + "-vsanwitness",
-                network_id=self.resources.private_networks["vsanwitness"]["network"].id,
-                opts=ResourceOptions(
-                    depends_on=[
-                        self.resources.private_networks["vsanwitness"]["subnet"]
-                    ]
-                ),
-            )
-            subport_management = networking.Port(
-                node_name + "-management-vcf01",
-                network_id=self.resources.mgmt_network.id,
-                fixed_ips=[
-                    networking.PortFixedIpArgs(
-                        subnet_id=self.resources.mgmt_subnet.id, ip_address=node_ip
-                    )
-                ],
-            )
             pn = self.resources.private_networks
-            trunk = networking.trunk.Trunk(
+            ports = {}
+            for name in pn:
+                port = networking.Port(
+                    node_name + "-" + name,
+                    admin_state_up=True,
+                    network_id=pn[name]["network"].id,
+                    opts=ResourceOptions(
+                        depends_on=[pn[name]["subnet"]]
+                    ),
+                )
+                ports[name] = port
+
+            sub_ports = []
+            for name in pn:
+                sub_port = networking.TrunkSubPortArgs(
+                    port_id=ports[name].id,
+                    segmentation_id=pn[name]["vlan_id"],
+                    segmentation_type="vlan",
+                )
+                sub_ports.append(sub_port)
+
+            networking.trunk.Trunk(
                 node_name + "-trunk",
                 name=node_name + "-trunk",
                 admin_state_up=True,
                 port_id=parent_port.id,
-                sub_ports=[
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_vmotion.id,
-                        segmentation_id=pn["vmotion"]["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_edgetep.id,
-                        segmentation_id=pn["edgetep"]["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_hosttep.id,
-                        segmentation_id=pn["hosttep"]["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_nfs.id,
-                        segmentation_id=pn["nfs"]["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_vsan.id,
-                        segmentation_id=pn["vsan"]["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_vsanwitness.id,
-                        segmentation_id=pn["vsanwitness"]["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                    networking.TrunkSubPortArgs(
-                        port_id=subport_management.id,
-                        segmentation_id=self.props.mgmt_network["vlan_id"],
-                        segmentation_type="vlan",
-                    ),
-                ],
+                sub_ports=sub_ports,
                 opts=ResourceOptions(depends_on=[instance]),
             )
 
-            pulumi.export(node_name + "_port_vmotion", subport_vmotion.name)
-            pulumi.export(node_name + "_port_edgetep", subport_edgetep.name)
-            pulumi.export(node_name + "_port_hosttep", subport_hosttep.name)
-            pulumi.export(node_name + "_port_nfs", subport_nfs.name)
-            pulumi.export(node_name + "_port_vsan", subport_vsan.name)
-            pulumi.export(node_name + "_port_vsanwiteness", subport_vsanwitness.name)
+            for name in pn:
+                pulumi.export(node_name + "_port_" + name, ports[name].name)
 
         return esxi_servers
 
