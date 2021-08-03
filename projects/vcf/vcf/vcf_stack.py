@@ -434,6 +434,17 @@ echo 'net.ipv4.conf.all.rp_filter = 2' >> /etc/sysctl.conf
                     ),
                 )
                 ports[name] = port
+            
+            # creating non-private network port
+            subport_management = networking.Port(
+                node_name + "-management-vcf01",
+                network_id=self.resources.mgmt_network.id,
+                fixed_ips=[
+                    networking.PortFixedIpArgs(
+                        subnet_id=self.resources.mgmt_subnet.id, ip_address=node_ip
+                    )
+                ],
+            )
 
             sub_ports = []
             for name in pn:
@@ -443,7 +454,14 @@ echo 'net.ipv4.conf.all.rp_filter = 2' >> /etc/sysctl.conf
                     segmentation_type="vlan",
                 )
                 sub_ports.append(sub_port)
-
+            
+            # adding non-private network port
+            sub_ports.append(networking.TrunkSubPortArgs(
+                        port_id=subport_management.id,
+                        segmentation_id=self.props.mgmt_network["vlan_id"],
+                        segmentation_type="vlan",
+                    )
+            )
             networking.trunk.Trunk(
                 node_name + "-trunk",
                 name=node_name + "-trunk",
