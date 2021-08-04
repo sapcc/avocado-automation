@@ -142,7 +142,7 @@ func (m *Manager) ReloadConfigs() (messages []string) {
 		project, stack := cfg.GetProjectStackName()
 		if _, ok := manager.Get(project, stack); !ok {
 			// create new controller
-			nc, err := manager.New(fpath)
+			_, err := manager.New(fpath)
 			msg := fmt.Sprintf("create controller from config %s", fpath)
 			if err != nil {
 				err = fmt.Errorf("%s: %v", msg, err)
@@ -153,7 +153,8 @@ func (m *Manager) ReloadConfigs() (messages []string) {
 				messages = append(messages, msg)
 				logger.Println(msg)
 			}
-			nc.start()
+			//Do not start pulumi on a pod restart automatically!
+			//nc.start()
 		} else {
 			// update controller
 			nc, err := manager.Update(project, stack)
